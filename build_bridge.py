@@ -27,15 +27,20 @@ REWARD      = 1
 TIMEOUT     = -.5
 DIE         = -1
 
-
+LAND        = 0
 BRIDGE      = 1
 GOAL        = 2
-PLAYER      = 3
-RIVER       = 7
-DROWN       = 8
+RIVER       = 3
+DROWN       = 4
+PLAYER      = 5
 BLOCKED     = 9
 
 MAPS = {
+    '3x3' : [
+        "SLL",
+        "RRR",
+        "LLG"
+    ],
     '8x8' : [
         "SLLLLLLL",
         "LLLLLLLL",
@@ -84,7 +89,7 @@ class BuildBridgeEnv(Env):
     def __init__(self, desc=None, map_name=None, step_penalty=0, use_random_map=False, use_coord=False,
                  give_details=False, put_player=True, use_delay_reset=False, delay_reset=5, delay_reset_times=500,
                  use_time_limit=False, time_limit=40, use_flatten=False, step_render=False, simple_action=False,
-                 extra_dim=True, use_partial=False, partial_dist=3):
+                 extra_dim=True, use_partial=False, partial_dist=3, use_onehot=False, no_drown=False):
         """
         desc             : map description, as shown in MAPS var.
         map_name         : predefined map
@@ -141,21 +146,28 @@ class BuildBridgeEnv(Env):
         self.use_coord         = use_coord
         self.simple_action     = simple_action
         self.action_space      = spaces.Discrete(4) if not self.simple_action else spaces.Discrete(8)
+        self.use_onehot        = use_onehot
+        self.no_drown          = no_drown
 
         if use_coord :
-            self.observation_space = spaces.Discrete(2)
-            self.observation_space.shape = (2,)
+            state_len = 2
+            state_shape = (2, )
+        elif use_onehot :
+            onehot_len = 6 if not put_player else 9
+            state_len = onehot_len * nrow * ncol
+            state_shape = (nrow, ncol, onehot_len) if use_flatten is False else (state_len, )
         elif give_details is False and use_partial is False:
-            self.observation_space = spaces.Discrete(nrow * ncol)
-            self.observation_space.shape = (nrow, ncol) if use_flatten is False else (nrow * ncol, )
+            state_len = nrow * ncol
+            state_shape = (nrow, ncol) if use_flatten is False else (nrow * ncol, )
         elif use_partial :
             state_len = partial_dist if give_details is False else partial_dist + 3
-            self.observation_space = spaces.Discrete(state_len)
-            self.observation_space.shape = (state_len, )
+            state_shape = (state_len, )
         else :
             state_len = nrow * ncol + 3
-            self.observation_space = spaces.Discrete(state_len)
-            self.observation_space.shape = (state_len, )
+            state_shape = (state_len, )
+
+        self.observation_space = spaces.Discrete(state_len)
+        self.observation_space.shape = state_shape
 
 
         self._reset()
@@ -213,6 +225,7 @@ class BuildBridgeEnv(Env):
     def _build_map(self):
 
         m = np.zeros((self.nrow, self.ncol), dtype='int')
+
         sp = (0, 0)
         gp = (0, 0)
 
@@ -295,6 +308,10 @@ class BuildBridgeEnv(Env):
 
     def _move_forward(self):
         r, c                   = self._get_front(self.player_pos, self.player_dir)
+
+        if self.no_drown and (self.map[r, c] == RIVER):
+            return self.player_pos
+
         old_r, old_c           = self.player_pos
         self.map[old_r, old_c] = self._orig_block
         self._orig_block       = self.map[r, c]
@@ -310,12 +327,17 @@ class BuildBridgeEnv(Env):
 
     def _get_observation(self):
 
-        if self.use_coord:
+        if self.use_onehot :
+            state = self._get_onehot_state()
+        elif self.use_coord :
             state = np.array(self.player_pos)
         elif self.use_partial :
             state = self._get_partial_state()
         else :
-            state = self.map if self.use_flatten is not True else self.map.flatten()
+            state = self.map
+
+        if self.use_flatten :
+            state = state.flatten()
 
         if self.give_details:
             state = np.append(state, [self.player_pos[0], self.player_pos[1], self.player_dir])
@@ -341,8 +363,8 @@ class BuildBridgeEnv(Env):
                     self._best = reward
                 if self.simple_action : action_name = ['UP', 'LEFT', 'DOWN', 'RIGHT', 'P_UP', 'P_LEFT', 'P_DOWN', 'P_RIGHT']
                 else : action_name = ['MOVE', 'TURN_LEFT', 'TURN_RIGHT', 'PLACE']
-                print("reward : {}({}), done : {}, action : {}, position : {}".format(
-                    reward, self._best, done, action_name[self._pa], state))
+                print("reward : {}({}), done : {}, action : {}".format(
+                    reward, self._best, done, action_name[self._pa]))
 
 
         if self.extra_dim is True :
@@ -369,6 +391,12 @@ class BuildBridgeEnv(Env):
         if flip : state = np.flipud(state)
 
         return state
+
+    def _get_onehot_state(self):
+        onehot_len = 6 if not self.put_player else 9
+        z = np.zeros(list(self.map.shape) + [onehot_len])
+        z[list(np.indices(z.shape[:-1])) + [self.map]] = 1
+        return z
 
     def _get_front(self, pos, direction):
         return self._get_dir_dist(pos, direction, 1)
@@ -415,7 +443,7 @@ class BuildBridgeEnv(Env):
 
 if __name__ == '__main__':
 
-    BBE = BuildBridgeEnv(map_name='8x8', use_coord=True,  step_render=True, extra_dim=False)
+    BBE = BuildBridgeEnv(map_name='8x8', use_coord=True,  step_render=True, extra_dim=False, no_drown=True)
     while True :
         #BBE.render()
         key = input()
