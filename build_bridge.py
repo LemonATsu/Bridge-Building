@@ -168,7 +168,7 @@ class BuildBridgeEnv(Env):
 
     def __init__(self, desc=None, map_name=None, use_random_map=False,
                  use_time_limit=True, time_limit=400, step_penalty=-0.00125,
-                 step_render=False, no_drown=False, gray_scale=False):
+                 step_render=False, render_mode='human', no_drown=False, gray_scale=False):
 
         if desc is None and map_name is None and use_random_map is False :
             return ValueError("Must provide either desc, map_name, or random flag")
@@ -193,6 +193,7 @@ class BuildBridgeEnv(Env):
         self.spec = None
         self.no_drown = no_drown
         self.gray_scale = gray_scale
+        self.mode = render_mode
 
         self._reset()
 
@@ -252,7 +253,7 @@ class BuildBridgeEnv(Env):
         if self.step_render :
             self._render(self.mode)
 
-        return state, reward, done, {}
+        return state / 255., reward, done, {}
 
     def _render(self, mode='human', close=False):
         if close : return
@@ -389,7 +390,7 @@ if __name__ == '__main__':
             print("Action : Place bridge")
         elif key == 'e' : break
         else : continue
-        print(s.shape)
+        print(s)
 
         plt.imshow(s.reshape(72, 72), cmap='gray')
 
