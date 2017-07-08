@@ -177,6 +177,7 @@ class BuildBridgeEnv(Env):
         elif desc is None :
             self.desc = np.asarray(MAPS[map_name], dtype='c')
 
+        c = 3 if gray_scale is False else 1
         self.built_done = False
         self.use_random_map = use_random_map
         self.time_limit = time_limit
@@ -186,7 +187,7 @@ class BuildBridgeEnv(Env):
         self.step_render = step_render
         self.action_space = spaces.Discrete(4)
         self.observation_space = spaces.Discrete(PPB*self.nrow*PPB*self.ncol)
-        self.observation_space.shape = (PPB*self.nrow, PPB*self.ncol)
+        self.observation_space.shape = (PPB*self.nrow, PPB*self.ncol, c)
         self.global_step = 0
         self.step_cnt = 0
         self.spec = None
@@ -232,7 +233,7 @@ class BuildBridgeEnv(Env):
 
     def _get_observation(self) :
 
-        state = self.image if self.gray_scale is False else rgb_to_gray(self.image)
+        state = self.image if self.gray_scale is False else rgb_to_gray(self.image).reshape(self.observation_space.shape)
         r, c = self.player_pos
 
         if self.player_pos == self.goal_pos :
@@ -357,7 +358,7 @@ class BuildBridgeEnv(Env):
 
 if __name__ == '__main__':
 
-    BBE = BuildBridgeEnv(use_random_map=True)
+    BBE = BuildBridgeEnv(use_random_map=True, gray_scale=True)
 
     import matplotlib.pyplot as plt
     import cv2
@@ -388,8 +389,9 @@ if __name__ == '__main__':
             print("Action : Place bridge")
         elif key == 'e' : break
         else : continue
-        x = rgb_to_gray(s)
-        plt.imshow(x, cmap='gray')
+        print(s.shape)
+
+        plt.imshow(s.reshape(72, 72), cmap='gray')
 
 
 
