@@ -78,6 +78,36 @@ PLAYER_D  = np.nonzero(PLAYER_DROWN)
 
 
 MAPS = {
+    '8x8_thollow_v2' : [
+        "SRLLLLRG",
+        "LRLLLLRL",
+        "LRLLLLRL",
+        "LRLLLLRL",
+        "LRLLLLRL",
+        "LRLLLLRL",
+        "LRRRRRRL",
+        "LLLLLLLL",
+    ],
+    '8x8_thollow' : [
+        "SRRLLRRG",
+        "LRRLLRRL",
+        "LRRLLRRL",
+        "LRRLLRRL",
+        "LRRLLRRL",
+        "LRRLLRRL",
+        "LRRRRRRL",
+        "LLLLLLLL",
+    ],
+    '8x8_t' : [
+        "SRRRRRRG",
+        "LRRRRRRL",
+        "LRRRRRRL",
+        "LRRRRRRL",
+        "LRRRRRRL",
+        "LRRRRRRL",
+        "LRRRRRRL",
+        "LLLLLLLL",
+    ],
     '8x8_v' : [
         "SLLRLLLG",
         "LLLRLLLL",
@@ -138,6 +168,8 @@ MAPS = {
         "LRLLLLLL",
         "LRLLLLLG",
     ],
+}
+"""
     '8x8_adv_1' : [
         "LLLLLLLS",
         "LLLLLLLL",
@@ -158,7 +190,7 @@ MAPS = {
         "LRRRRRRR",
         "LLLLLLLG",
     ]
-}
+"""
 
 def rgb_to_gray(image):
     return np.dot(image[...,:3], [0.299, 0.587, 0.114])
@@ -186,7 +218,7 @@ class BuildBridgeEnv(Env):
         self.nrow, self.ncol = self.desc.shape
         self.step_render = step_render
         self.action_space = spaces.Discrete(4)
-        self.observation_space = spaces.Discrete(PPB*self.nrow*PPB*self.ncol)
+        self.observation_space = spaces.Discrete(PPB*self.nrow*PPB*self.ncol*3)
         self.observation_space.shape = (PPB*self.nrow, PPB*self.ncol, c)
         self.global_step = 0
         self.step_cnt = 0
@@ -213,12 +245,22 @@ class BuildBridgeEnv(Env):
 
         self.step_cnt = 0
         self.player_dir = np.random.randint(4)
-        self.player_pos = self.orig_block = self.start_pos
+        self.player_pos = self.orig_block = self._random_start()
         self.cur_desc = self.desc.copy()
 
         self.draw_player(self.player_pos[0], self.player_pos[1])
 
         return self._get_observation()[0]
+
+    def _random_start(self) :
+        done = False
+        while not done :
+            x, y = np.random.randint(self.nrow, size=2)
+            dist = (np.abs(x-self.goal_pos[0]) + np.abs(y-self.goal_pos[1]))**2
+            thresh = (self.nrow/2)**2
+            if dist > thresh and self.map[x, y] != RIVER:
+                done = True
+        return x, y
 
     def _step(self, a) :
         if   a == MOVE        : self._move_forward()
@@ -228,7 +270,6 @@ class BuildBridgeEnv(Env):
 
         self.global_step += 1
         self.step_cnt += 1
-
 
         return self._get_observation()
 
@@ -372,9 +413,6 @@ if __name__ == '__main__':
     while True :
         BBE.render()
         key = input()
-        if d :
-            print("done!")
-            s = BBE.reset()
 
         if   key == 'w' :
             s, r, d, _ = BBE.step(MOVE)
@@ -390,9 +428,15 @@ if __name__ == '__main__':
             print("Action : Place bridge")
         elif key == 'e' : break
         else : continue
-        print(s)
 
         plt.imshow(s.reshape(72, 72), cmap='gray')
+
+        if d :
+            print("done!")
+            time.sleep(1.0)
+            s = BBE.reset()
+            plt.imshow(s.reshape(72, 72), cmap='gray')
+
 
 
 
