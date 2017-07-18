@@ -222,7 +222,6 @@ class BuildBridgeEnv(Env):
         self.observation_space.shape = (PPB*self.nrow, PPB*self.ncol, c)
         self.global_step = 0
         self.step_cnt = 0
-        self.spec = None
         self.no_drown = no_drown
         self.gray_scale = gray_scale
         self.mode = render_mode
